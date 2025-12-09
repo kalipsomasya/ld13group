@@ -1,5 +1,6 @@
-// 000RDB000 Jānis Programmētājs
-// 111RDB111 Ilze Programmētāja
+// 251RDC017 Jana Kuranova 16
+// 251RDC054 Aļona Strahova 16
+// 251RDC019 Marija Mičule 16
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -111,9 +112,10 @@ public class Main {
 	}
 	
 	public static void about() {
-		// TODO insert information about authors
-		System.out.println("000RDB000 Jānis Programmētājs");
-		System.out.println("111RDB111 Ilze Programmētāja");
+		System.out.println("251RDC017 Jana Kuranova 16");
+        System.out.println("251RDC054 Aļona Strahova 16");
+        System.out.println("251RDC019 Marija Mičule 16");
 	}
 }
+
 
