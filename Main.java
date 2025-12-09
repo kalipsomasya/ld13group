@@ -2,120 +2,435 @@
 // 251RDC054 Aļona Strahova 16
 // 251RDC019 Marija Mičule 16
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Scanner;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Closeable;
+import java.io.IOException;
+
+import java.util.Scanner;
+import java.util.Arrays;
+import java.util.PriorityQueue;
 
 public class Main {
 
+    private static final byte[] MAGIC = new byte[] { 'R', 'H', 'F', '1' };
 
-	public static void main(String[] args) {
-		Scanner sc = new Scanner(System.in);
-		String choiseStr;
-		String sourceFile, resultFile, firstFile, secondFile;
-		
-		loop: while (true) {
-			
-			choiseStr = sc.next();
-								
-			switch (choiseStr) {
-			case "comp":
-				System.out.print("source file name: ");
-				sourceFile = sc.next();
-				System.out.print("archive name: ");
-				resultFile = sc.next();
-				comp(sourceFile, resultFile);
-				break;
-			case "decomp":
-				System.out.print("archive name: ");
-				sourceFile = sc.next();
-				System.out.print("file name: ");
-				resultFile = sc.next();
-				decomp(sourceFile, resultFile);
-				break;
-			case "size":
-				System.out.print("file name: ");
-				sourceFile = sc.next();
-				size(sourceFile);
-				break;
-			case "equal":
-				System.out.print("first file name: ");
-				firstFile = sc.next();
-				System.out.print("second file name: ");
-				secondFile = sc.next();
-				System.out.println(equal(firstFile, secondFile));
-				break;
-			case "about":
-				about();
-				break;
-			case "exit":
-				break loop;
-			}
-		}
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String choiceStr;
+        String sourceFile, resultFile, firstFile, secondFile;
 
-		sc.close();
-	}
+        loop: while (true) {
+            System.out.print("> ");
+            if (!sc.hasNextLine()) break;
+            choiceStr = sc.nextLine().trim();
 
-	public static void comp(String sourceFile, String resultFile) {
-		// TODO: implement this method
-	}
+            switch (choiceStr) {
+                case "comp":
+                    System.out.print("source file name: ");
+                    sourceFile = sc.nextLine().trim();
+                    System.out.print("archive name: ");
+                    resultFile = sc.nextLine().trim();
+                    comp(sourceFile, resultFile);
+                    break;
+                case "decomp":
+                    System.out.print("archive name: ");
+                    sourceFile = sc.nextLine().trim();
+                    System.out.print("file name: ");
+                    resultFile = sc.nextLine().trim();
+                    decomp(sourceFile, resultFile);
+                    break;
+                case "size":
+                    System.out.print("file name: ");
+                    sourceFile = sc.nextLine().trim();
+                    size(sourceFile);
+                    break;
+                case "equal":
+                    System.out.print("first file name: ");
+                    firstFile = sc.nextLine().trim();
+                    System.out.print("second file name: ");
+                    secondFile = sc.nextLine().trim();
+                    System.out.println(equal(firstFile, secondFile));
+                    break;
+                case "about":
+                    about();
+                    break;
+                case "cfactor":
+                    System.out.print("original file: ");
+                    firstFile = sc.nextLine().trim();
+                    System.out.print("compressed file: ");
+                    secondFile = sc.nextLine().trim();
+                    compressionFactor(firstFile, secondFile);
+                    break;
 
-	public static void decomp(String sourceFile, String resultFile) {
-		// TODO: implement this method
-	}
-	
-	public static void size(String sourceFile) {
-		try {
-			FileInputStream f = new FileInputStream(sourceFile);
-			System.out.println("size: " + f.available());
-			f.close();
-		}
-		catch (IOException ex) {
-			System.out.println(ex.getMessage());
-		}
-		
-	}
-	
-	public static boolean equal(String firstFile, String secondFile) {
-		try {
-			FileInputStream f1 = new FileInputStream(firstFile);
-			FileInputStream f2 = new FileInputStream(secondFile);
-			int k1, k2;
-			byte[] buf1 = new byte[1000];
-			byte[] buf2 = new byte[1000];
-			do {
-				k1 = f1.read(buf1);
-				k2 = f2.read(buf2);
-				if (k1 != k2) {
-					f1.close();
-					f2.close();
-					return false;
-				}
-				for (int i=0; i<k1; i++) {
-					if (buf1[i] != buf2[i]) {
-						f1.close();
-						f2.close();
-						return false;
-					}
-						
-				}
-			} while (!(k1 == -1 && k2 == -1));
-			f1.close();
-			f2.close();
-			return true;
-		}
-		catch (IOException ex) {
-			System.out.println(ex.getMessage());
-			return false;
-		}
-	}
-	
-	public static void about() {
-		System.out.println("251RDC017 Jana Kuranova 16");
-        System.out.println("251RDC054 Aļona Strahova 16");
-        System.out.println("251RDC019 Marija Mičule 16");
-	}
+                case "exit":
+                    break loop;
+                default:
+                    if (!choiceStr.isEmpty())
+                        System.out.println("Unknown command. Allowed: comp, decomp, size, equal, about, exit");
+            }
+        }
+
+        sc.close();
+    }
+    public static void compressionFactor(String original, String compressed) {
+        try {
+            File f1 = new File(original);
+            File f2 = new File(compressed);
+
+            if (!f1.exists() || !f1.isFile()) {
+                System.out.println("Original file not found.");
+                return;
+            }
+            if (!f2.exists() || !f2.isFile()) {
+                System.out.println("Compressed file not found.");
+                return;
+            }
+
+            long s1 = f1.length();
+            long s2 = f2.length();
+
+            if (s2 == 0) {
+                System.out.println("Compressed file is empty. Factor = INF");
+                return;
+            }
+
+            double factor = (double) s1 / (double) s2;
+
+            // округление до 2 знаков
+            factor = Math.round(factor * 100.0) / 100.0;
+
+            System.out.println("Original size:   " + s1);
+            System.out.println("Compressed size: " + s2);
+            System.out.println("Compression factor: " + factor);
+
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+    }
+
+    // -------------------- SIZE --------------------
+    public static void size(String sourceFile) {
+        try {
+            File f = new File(sourceFile);
+            if (!f.exists() || !f.isFile()) {
+                System.out.println("file not found");
+                return;
+            }
+            System.out.println("size: " + f.length());
+        } catch (Exception ex) {
+            System.out.println(ex.getMessage());
+        }
+    }
+
+    // -------------------- EQUAL --------------------
+    public static boolean equal(String firstFile, String secondFile) {
+        try (FileInputStream f1 = new FileInputStream(firstFile);
+             FileInputStream f2 = new FileInputStream(secondFile)) {
+
+            int k1, k2;
+            byte[] buf1 = new byte[4096];
+            byte[] buf2 = new byte[4096];
+
+            do {
+                k1 = f1.read(buf1);
+                k2 = f2.read(buf2);
+
+                if (k1 != k2) return false;
+
+                if (k1 > 0) {
+                    for (int i = 0; i < k1; i++) {
+                        if (buf1[i] != buf2[i]) return false;
+                    }
+                }
+            } while (k1 != -1 && k2 != -1);
+
+            return true;
+        } catch (IOException ex) {
+            System.out.println(ex.getMessage());
+            return false;
+        }
+    }
+
+    // -------------------- ABOUT --------------------
+    public static void about() {
+        System.out.println("000RDB000 Vards Uzvards, GR1");
+        System.out.println("111RDB111 Vards2 Uzvards2, GR1");
+    }
+
+    // -------------------- COMP --------------------
+    public static void comp(String sourceFile, String resultFile) {
+        try {
+            File inFile = new File(sourceFile);
+            if (!inFile.exists() || !inFile.isFile()) {
+                System.out.println("Source file not found: " + sourceFile);
+                return;
+            }
+
+            byte[] original = readAllBytes(inFile);
+            long originalLength = original.length;
+
+            byte[] rleBytes = rleEncodeBytes(original);
+            int rleLength = rleBytes.length;
+
+            long[] freq = new long[256];
+            for (byte b : rleBytes) freq[b & 0xFF]++;
+
+            Node root = buildHuffmanTree(freq);
+            String[] codes = new String[256];
+            if (root != null) buildCodes(root, "", codes);
+
+            try (FileOutputStream fos = new FileOutputStream(resultFile);
+                 BufferedOutputStream bos = new BufferedOutputStream(fos);
+                 DataOutputStream dos = new DataOutputStream(bos)) {
+
+                dos.write(MAGIC);
+                dos.writeLong(originalLength);
+                dos.writeInt(rleLength);
+                for (int i = 0; i < 256; i++) dos.writeLong(freq[i]);
+                dos.flush();
+
+                BitOutputStream bitOut = new BitOutputStream(bos);
+                for (int i = 0; i < rleLength; i++) {
+                    String code = codes[rleBytes[i] & 0xFF];
+                    if (code == null || code.isEmpty()) code = "0";
+                    for (char c : code.toCharArray()) {
+                        bitOut.writeBit(c == '1' ? 1 : 0);
+                    }
+                }
+                bitOut.close();
+            }
+
+            System.out.println("Compression finished.");
+        } catch (IOException ex) {
+            System.out.println("Error during compression: " + ex.getMessage());
+        }
+    }
+
+    // -------------------- DECOMP --------------------
+    public static void decomp(String sourceFile, String resultFile) {
+        try {
+            File inFile = new File(sourceFile);
+            if (!inFile.exists() || !inFile.isFile()) {
+                System.out.println("Archive file not found: " + sourceFile);
+                return;
+            }
+
+            try (FileInputStream fis = new FileInputStream(inFile);
+                 BufferedInputStream bis = new BufferedInputStream(fis);
+                 DataInputStream dis = new DataInputStream(bis)) {
+
+                byte[] magicRead = new byte[4];
+                dis.readFully(magicRead);
+                if (!Arrays.equals(magicRead, MAGIC)) {
+                    System.out.println("Not a valid archive (magic mismatch).");
+                    return;
+                }
+
+                long originalLength = dis.readLong();
+                int rleLength = dis.readInt();
+                long[] freq = new long[256];
+                for (int i = 0; i < 256; i++) freq[i] = dis.readLong();
+
+                Node root = buildHuffmanTree(freq);
+
+                byte[] rleBytes = new byte[rleLength];
+                if (rleLength > 0) {
+                    BitInputStream bitIn = new BitInputStream(bis);
+                    int produced = 0;
+                    if (root == null) {
+                        // nothing to decode
+                    } else if (root.isLeaf()) {
+                        byte sym = (byte) root.symbol;
+                        for (int i = 0; i < rleLength; i++) rleBytes[i] = sym;
+                    } else {
+                        Node node = root;
+                        while (produced < rleLength) {
+                            int bit = bitIn.readBit();
+                            if (bit == -1) break;
+                            node = (bit == 0) ? node.left : node.right;
+                            if (node.isLeaf()) {
+                                rleBytes[produced++] = (byte) node.symbol;
+                                node = root;
+                            }
+                        }
+                    }
+                }
+
+                byte[] expanded = rleDecodeBytes(rleBytes, originalLength);
+
+                try (FileOutputStream fos = new FileOutputStream(resultFile);
+                     BufferedOutputStream bos = new BufferedOutputStream(fos)) {
+                    bos.write(expanded);
+                    bos.flush();
+                }
+            }
+
+            System.out.println("Decompression finished.");
+        } catch (IOException ex) {
+            System.out.println("Error during decompression: " + ex.getMessage());
+        }
+    }
+
+    // -------------------- RLE --------------------
+    private static byte[] rleEncodeBytes(byte[] data) {
+        if (data == null || data.length == 0) return new byte[0];
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        int i = 0;
+        while (i < data.length) {
+            int j = i + 1;
+            while (j < data.length && data[j] == data[i] && (j - i) < 255) j++;
+            int count = j - i;
+            baos.write((byte) count);
+            baos.write(data[i]);
+            i = j;
+        }
+        return baos.toByteArray();
+    }
+
+    private static byte[] rleDecodeBytes(byte[] rleBytes, long originalLength) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        if (rleBytes == null || rleBytes.length == 0) return new byte[0];
+        if (rleBytes.length % 2 != 0) throw new IOException("Malformed RLE stream.");
+        for (int i = 0; i + 1 < rleBytes.length; i += 2) {
+            int count = rleBytes[i] & 0xFF;
+            byte val = rleBytes[i + 1];
+            for (int k = 0; k < count; k++) baos.write(val);
+            if (originalLength > 0 && baos.size() >= originalLength) break;
+        }
+        byte[] out = baos.toByteArray();
+        if (originalLength >= 0 && out.length > originalLength) {
+            byte[] trimmed = new byte[(int) originalLength];
+            System.arraycopy(out, 0, trimmed, 0, (int) originalLength);
+            return trimmed;
+        }
+        return out;
+    }
+
+    // -------------------- HUFFMAN --------------------
+    private static class Node implements Comparable<Node> {
+        final long freq;
+        final int symbol;
+        final Node left, right;
+
+        Node(long freq, int symbol, Node left, Node right) {
+            this.freq = freq;
+            this.symbol = symbol;
+            this.left = left;
+            this.right = right;
+        }
+
+        boolean isLeaf() {
+            return left == null && right == null;
+        }
+
+        @Override
+        public int compareTo(Node o) {
+            int cmp = Long.compare(this.freq, o.freq);
+            if (cmp == 0) return Integer.compare(this.symbol, o.symbol);
+            return cmp;
+        }
+    }
+
+    private static Node buildHuffmanTree(long[] freq) {
+        PriorityQueue<Node> pq = new PriorityQueue<>();
+        for (int i = 0; i < 256; i++) if (freq[i] > 0) pq.add(new Node(freq[i], i, null, null));
+        if (pq.isEmpty()) return null;
+        if (pq.size() == 1) {
+            Node only = pq.poll();
+            return new Node(only.freq, -1, only, null);
+        }
+        while (pq.size() > 1) {
+            Node a = pq.poll();
+            Node b = pq.poll();
+            Node parent = new Node(a.freq + b.freq, Math.min(a.symbol, b.symbol), a, b);
+            pq.add(parent);
+        }
+        return pq.poll();
+    }
+
+    private static void buildCodes(Node node, String prefix, String[] codes) {
+        if (node == null) return;
+        if (node.isLeaf()) {
+            codes[node.symbol] = prefix.isEmpty() ? "0" : prefix;
+        } else {
+            buildCodes(node.left, prefix + "0", codes);
+            buildCodes(node.right, prefix + "1", codes);
+        }
+    }
+
+    // -------------------- IO helpers --------------------
+    private static byte[] readAllBytes(File f) throws IOException {
+        try (FileInputStream fis = new FileInputStream(f);
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int r;
+            while ((r = fis.read(buf)) != -1) baos.write(buf, 0, r);
+            return baos.toByteArray();
+        }
+    }
+
+    // -------------------- Bit streams --------------------
+    private static class BitOutputStream implements Closeable {
+        private final OutputStream out;
+        private int currentByte;
+        private int numBitsFilled;
+
+        BitOutputStream(OutputStream out) {
+            this.out = out;
+            this.currentByte = 0;
+            this.numBitsFilled = 0;
+        }
+
+        void writeBit(int b) throws IOException {
+            if (b != 0 && b != 1) throw new IllegalArgumentException("bit must be 0 or 1");
+            currentByte = (currentByte << 1) | b;
+            numBitsFilled++;
+            if (numBitsFilled == 8) {
+                out.write(currentByte);
+                numBitsFilled = 0;
+                currentByte = 0;
+            }
+        }
+
+        public void close() throws IOException {
+            if (numBitsFilled > 0) out.write(currentByte << (8 - numBitsFilled));
+            out.flush();
+        }
+    }
+
+    private static class BitInputStream implements Closeable {
+        private final InputStream in;
+        private int currentByte;
+        private int numBitsRemaining;
+
+        BitInputStream(InputStream in) {
+            this.in = in;
+            this.currentByte = 0;
+            this.numBitsRemaining = 0;
+        }
+
+        int readBit() throws IOException {
+            if (numBitsRemaining == 0) {
+                currentByte = in.read();
+                if (currentByte == -1) return -1;
+                numBitsRemaining = 8;
+            }
+            numBitsRemaining--;
+            return (currentByte >> numBitsRemaining) & 1;
+        }
+
+        public void close() throws IOException {
+            in.close();
+        }
+    }
 }
-
-
