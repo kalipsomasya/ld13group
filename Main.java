@@ -81,26 +81,20 @@ public class Main {
 
             byte[] originals = visiBaiti(vFaile);
             long origGarums = originals.length;
-
-            // 1) BWT
+            
             BWTResult bwt = BWT.transform(originals);
-
-            // 2) MTF
+            
             byte[] mtf = MTF.encode(bwt.lastColumn);
-
-            // 3) RLE (pairs [count][value], count 1..255)
+            
             byte[] rle = RLE.encode(mtf);
-
-            // 4) frequency table for Huffman (over rle bytes)
+            
             long[] biezhums = new long[256];
             for (byte b : rle) biezhums[b & 0xFF]++;
-
-            // build Huffman tree & codes
+            
             Huffman.Node root = Huffman.buildTree(biezhums);
             String[] codes = new String[256];
             if (root != null) Huffman.buildCodes(root, "", codes);
-
-            // Write archive: MAGIC | origGarums(long) | bwtPrimaryIndex(int) | rleLength(int) | biezhums[256]*long | bitstream(huffman-encoded rle)
+            
             try (FileOutputStream fos = new FileOutputStream(resultFile);
                  BufferedOutputStream bos = new BufferedOutputStream(fos);
                  DataOutputStream dos = new DataOutputStream(bos)) {
@@ -179,15 +173,11 @@ public class Main {
                         }
                     }
                 }
-
-                // RLE decode -> mtf
+                
                 byte[] mtf = RLE.decode(rle);
-                // MTF decode -> last column
                 byte[] last = MTF.decode(mtf);
-                // inverse BWT
                 byte[] originals = BWT.inverse(last, bwtPrimary);
-
-                // write
+                
                 try (FileOutputStream fos = new FileOutputStream(resultFile);
                      BufferedOutputStream bos = new BufferedOutputStream(fos)) {
                     bos.write(originals);
@@ -252,11 +242,11 @@ public class Main {
         System.out.println("251RDC019 Marija Mičule 16");
     }
 
-    // ----------------- HELPERS: BWT, MTF, RLE, Huffman, BitStreams -----------------
+    //HELPERS: BWT, MTF, RLE, Huffman, BitStreams
 
-    private static final byte[] MAGIC = new byte[] { 'B', 'W', 'H', '1' }; // BWT+MTF+RLE+Huffman
-
-    // ---------- BWT ----------
+    private static final byte[] MAGIC = new byte[] { 'B', 'W', 'H', '1' };
+    
+    //BWT
     private static class BWTResult {
         final byte[] lastColumn;
         final int primaryIndex;
@@ -264,7 +254,6 @@ public class Main {
     }
 
     private static class BWT {
-        // Naive BWT: build rotations and sort them
         static BWTResult transform(byte[] input) {
             if (input == null || input.length == 0) return new BWTResult(new byte[0], 0);
             int n = input.length;
@@ -296,7 +285,6 @@ public class Main {
         static byte[] inverse(byte[] last, int primary) {
             if (last == null || last.length == 0) return new byte[0];
             int n = last.length;
-            // Build first column by sorting last
             int[] counts = new int[256];
             for (byte b : last) counts[b & 0xFF]++;
             int[] starts = new int[256];
@@ -305,7 +293,6 @@ public class Main {
                 starts[i] = sum;
                 sum += counts[i];
             }
-            // compute occurrence ranks
             int[] occ = new int[n];
             int[] seen = new int[256];
             for (int i = 0; i < n; i++) {
@@ -313,7 +300,6 @@ public class Main {
                 occ[i] = seen[v];
                 seen[v]++;
             }
-            // rebuild via LF-mapping
             byte[] res = new byte[n];
             int idx = primary;
             for (int i = n - 1; i >= 0; i--) {
@@ -325,7 +311,7 @@ public class Main {
         }
     }
 
-    // ---------- MTF ----------
+    //MTF
     private static class MTF {
         static byte[] encode(byte[] data) {
             if (data == null || data.length == 0) return new byte[0];
@@ -337,7 +323,6 @@ public class Main {
                 int pos = 0;
                 while ((symbols[pos] & 0xFF) != val) pos++;
                 baos.write(pos);
-                // move to front
                 byte sym = symbols[pos];
                 System.arraycopy(symbols, 0, symbols, 1, pos);
                 symbols[0] = sym;
@@ -354,7 +339,6 @@ public class Main {
                 int pos = b & 0xFF;
                 byte sym = symbols[pos];
                 baos.write(sym & 0xFF);
-                // move to front
                 System.arraycopy(symbols, 0, symbols, 1, pos);
                 symbols[0] = sym;
             }
@@ -362,7 +346,7 @@ public class Main {
         }
     }
 
-    // ---------- RLE (simple pair encoding) ----------
+    //RLE
     private static class RLE {
         static byte[] encode(byte[] data) throws IOException {
             if (data == null || data.length == 0) return new byte[0];
@@ -371,7 +355,7 @@ public class Main {
             while (i < data.length) {
                 int j = i + 1;
                 while (j < data.length && data[j] == data[i] && (j - i) < 255) j++;
-                int count = j - i; // 1..255
+                int count = j - i;
                 baos.write(count);
                 baos.write(data[i]);
                 i = j;
@@ -392,11 +376,11 @@ public class Main {
         }
     }
 
-    // ---------- HUFFMAN ----------
+    //HUFFMAN
     private static class Huffman {
         private static class Node implements Comparable<Node> {
             final long freq;
-            final int symbol; // 0..255 for leaf, -1 for internal
+            final int symbol; 
             final Node left, right;
             Node(long freq, int symbol, Node left, Node right) { this.freq = freq; this.symbol = symbol; this.left = left; this.right = right; }
             boolean isLeaf() { return left == null && right == null; }
@@ -435,7 +419,7 @@ public class Main {
         }
     }
 
-    // ---------- Bit streams ----------
+    //Bit streams
     private static class BitOutputStream implements java.io.Closeable {
         private final OutputStream out;
         private int currentByte = 0;
@@ -451,8 +435,7 @@ public class Main {
                 currentByte = 0;
             }
         }
-
-        // flush remaining bits but do NOT close underlying stream
+        
         void flushBitsOnly() throws IOException {
             if (numBitsFilled > 0) {
                 out.write(currentByte << (8 - numBitsFilled));
@@ -465,7 +448,6 @@ public class Main {
         @Override
         public void close() throws IOException {
             flushBitsOnly();
-            // underlying stream left open (caller closes)
         }
     }
 
@@ -489,7 +471,7 @@ public class Main {
         public void close() throws IOException { in.close(); }
     }
 
-    // ---------- IO helper ----------
+    //IO helper
     private static byte[] visiBaiti(File f) throws IOException {
         try (FileInputStream fis = new FileInputStream(f);
              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
