@@ -5,7 +5,6 @@
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -14,75 +13,64 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 import java.util.Scanner;
 
+
 public class Main {
 
-    private static final byte[] MAGIC = new byte[] { 'B', 'W', 'H', '1' }; // BWT+MTF+RLE+Huffman
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        String choiceStr;
+        String choiseStr;
         String sourceFile, resultFile, firstFile, secondFile;
 
         loop: while (true) {
-            System.out.print("> ");
-            if (!sc.hasNextLine()) break;
-            choiceStr = sc.nextLine().trim();
 
-            switch (choiceStr) {
+            choiseStr = sc.next();
+
+            switch (choiseStr) {
                 case "comp":
                     System.out.print("source file name: ");
-                    sourceFile = sc.nextLine().trim();
+                    sourceFile = sc.next();
                     System.out.print("archive name: ");
-                    resultFile = sc.nextLine().trim();
+                    resultFile = sc.next();
                     comp(sourceFile, resultFile);
                     break;
                 case "decomp":
                     System.out.print("archive name: ");
-                    sourceFile = sc.nextLine().trim();
+                    sourceFile = sc.next();
                     System.out.print("file name: ");
-                    resultFile = sc.nextLine().trim();
+                    resultFile = sc.next();
                     decomp(sourceFile, resultFile);
                     break;
                 case "size":
                     System.out.print("file name: ");
-                    sourceFile = sc.nextLine().trim();
+                    sourceFile = sc.next();
                     size(sourceFile);
                     break;
                 case "equal":
                     System.out.print("first file name: ");
-                    firstFile = sc.nextLine().trim();
+                    firstFile = sc.next();
                     System.out.print("second file name: ");
-                    secondFile = sc.nextLine().trim();
+                    secondFile = sc.next();
                     System.out.println(equal(firstFile, secondFile));
                     break;
                 case "about":
                     about();
                     break;
-                case "ratio":
-                    System.out.print("original file name: ");
-                    firstFile = sc.nextLine().trim();
-                    System.out.print("archive file name: ");
-                    secondFile = sc.nextLine().trim();
-                    ratio(firstFile, secondFile);
-                    break;
                 case "exit":
                     break loop;
                 default:
-                    if (!choiceStr.isEmpty())
-                        System.out.println("Unknown command. Allowed: comp, decomp, size, equal, about, ratio, exit");
+                    if (!choiseStr.isEmpty())
+                        System.out.println("Unknown command. Allowed: comp, decomp, size, equal, about, exit");
             }
         }
-
         sc.close();
     }
 
-    // ----------------- COMPRESS -----------------
     public static void comp(String sourceFile, String resultFile) {
         try {
             File vFaile = new File(sourceFile);
@@ -144,7 +132,6 @@ public class Main {
         }
     }
 
-    // ----------------- DECOMPRESS -----------------
     public static void decomp(String sourceFile, String resultFile) {
         try {
             File vFaile = new File(sourceFile);
@@ -213,39 +200,47 @@ public class Main {
         }
     }
 
-    // ----------------- FILE UTIL -----------------
     public static void size(String sourceFile) {
         try {
-            File f = new File(sourceFile);
-            if (!f.exists() || !f.isFile()) {
-                System.out.println("file not found");
-                return;
-            }
-            System.out.println("size: " + f.length());
-        } catch (Exception ex) {
+            FileInputStream f = new FileInputStream(sourceFile);
+            System.out.println("size: " + f.available());
+            f.close();
+        }
+        catch (IOException ex) {
             System.out.println(ex.getMessage());
         }
+
     }
 
     public static boolean equal(String firstFile, String secondFile) {
-        try (FileInputStream f1 = new FileInputStream(firstFile);
-             FileInputStream f2 = new FileInputStream(secondFile)) {
-
+        try {
+            FileInputStream f1 = new FileInputStream(firstFile);
+            FileInputStream f2 = new FileInputStream(secondFile);
             int k1, k2;
-            byte[] buf1 = new byte[4096];
-            byte[] buf2 = new byte[4096];
+            byte[] buf1 = new byte[1000];
+            byte[] buf2 = new byte[1000];
             do {
                 k1 = f1.read(buf1);
                 k2 = f2.read(buf2);
-                if (k1 != k2) return false;
-                if (k1 > 0) {
-                    for (int i = 0; i < k1; i++) {
-                        if (buf1[i] != buf2[i]) return false;
-                    }
+                if (k1 != k2) {
+                    f1.close();
+                    f2.close();
+                    return false;
                 }
-            } while (k1 != -1 && k2 != -1);
+                for (int i=0; i<k1; i++) {
+                    if (buf1[i] != buf2[i]) {
+                        f1.close();
+                        f2.close();
+                        return false;
+                    }
+
+                }
+            } while (!(k1 == -1 && k2 == -1));
+            f1.close();
+            f2.close();
             return true;
-        } catch (IOException ex) {
+        }
+        catch (IOException ex) {
             System.out.println(ex.getMessage());
             return false;
         }
@@ -257,37 +252,9 @@ public class Main {
         System.out.println("251RDC019 Marija Mičule 16");
     }
 
-    public static void ratio(String originalsF, String compF) {
-        try {
-            File f1 = new File(originalsF);
-            File f2 = new File(compF);
-
-            if (!f1.exists() || !f1.isFile()) {
-                System.out.println("Original file not found");
-                return;
-            }
-            if (!f2.exists() || !f2.isFile()) {
-                System.out.println("Compressed file not found");
-                return;
-            }
-
-            long lielumsOrig = f1.length();
-            long lielumsComp = f2.length();
-
-            if (lielumsComp == 0) {
-                System.out.println("Compressed file is empty (ratio undefined)");
-                return;
-            }
-
-            double ratio = (double) lielumsOrig / lielumsComp;
-            System.out.printf("ratio: %.2f%n", ratio);
-
-        } catch (Exception e) {
-            System.out.println("Error calculating ratio: " + e.getMessage());
-        }
-    }
-
     // ----------------- HELPERS: BWT, MTF, RLE, Huffman, BitStreams -----------------
+
+    private static final byte[] MAGIC = new byte[] { 'B', 'W', 'H', '1' }; // BWT+MTF+RLE+Huffman
 
     // ---------- BWT ----------
     private static class BWTResult {
@@ -469,7 +436,7 @@ public class Main {
     }
 
     // ---------- Bit streams ----------
-    private static class BitOutputStream implements Closeable {
+    private static class BitOutputStream implements java.io.Closeable {
         private final OutputStream out;
         private int currentByte = 0;
         private int numBitsFilled = 0;
@@ -502,7 +469,7 @@ public class Main {
         }
     }
 
-    private static class BitInputStream implements Closeable {
+    private static class BitInputStream implements java.io.Closeable {
         private final InputStream in;
         private int tekoshBit = 0;
         private int numursBitAtl = 0;
